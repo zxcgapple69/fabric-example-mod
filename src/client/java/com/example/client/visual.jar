@@ -1,0 +1,80 @@
+package com.example.visual;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.entity.player.PlayerEntity;
+
+public class VisualModClient implements ClientModInitializer {
+
+    // Waypoint (Saqlangan nuqta) koordinatalari - buni o'zingiz o'zgartirishingiz mumkin
+    private static final int WAYPOINT_X = 0;
+    private static final int WAYPOINT_Y = 64;
+    private static final int WAYPOINT_Z = 0;
+
+    @Override
+    public void onInitializeClient() {
+        HudRenderCallback.EVENT.register(this::onRenderHud);
+    }
+
+    private void onRenderHud(DrawContext drawContext, RenderTickCounter tickCounter) {
+        MinecraftClient client = MinecraftClient.getInstance();
+
+        // O'yinchi dunyoda bo'lmasa yoki F3 bosilgan bo'lsa render qilmaymiz
+        if (client.player == null || client.world == null || client.options.hudHidden) {
+            return;
+        }
+
+        TextRenderer textRenderer = client.textRenderer;
+        ClientPlayerEntity player = client.player;
+
+        int x = 10;
+        int y = 10;
+
+        // 1. Asosiy ma'lumotlar (FPS va Koordinatalar)
+        int fps = client.getCurrentFps();
+        int pX = (int) player.getX();
+        int pY = (int) player.getY();
+        int pZ = (int) player.getZ();
+
+        // Orqa fon ramkasi (ma'lumotlar ko'p bo'lgani uchun hajmini kattalashtiramiz)
+        drawContext.fill(x - 4, y - 4, x + 160, y + 95, 0x70000000);
+
+        drawContext.drawText(textRenderer, "§aFPS: §f" + fps, x, y, 0xFFFFFF, true);
+        drawContext.drawText(textRenderer, "§bXYZ: §f" + pX + ", " + pY + ", " + pZ, x, y + 12, 0xFFFFFF, true);
+
+        // 2. Waypoint (Nuqtagacha masofani hisoblash)
+        double distance = Math.sqrt(player.squaredDistanceTo(WAYPOINT_X, WAYPOINT_Y, WAYPOINT_Z));
+        String waypointText = String.format("§eBaza (Waypoint): §f%.1fm", distance);
+        drawContext.drawText(textRenderer, waypointText, x, y + 24, 0xFFFFFF, true);
+
+        // 3. Player ESP / Yaqindagi o'yinchilar ro'yxati
+        drawContext.drawText(textRenderer, "§c--- Yaqindagi O'yinchilar ---", x, y + 38, 0xFFFFFF, true);
+        
+        int offsetY = y + 50;
+        int count = 0;
+        
+        for (PlayerEntity otherPlayer : client.world.getPlayers()) {
+            // O'zimizdan boshqa o'yinchilarni qidiramiz va ekranga ko'pi bilan 3 tasini chiqaramiz
+            if (otherPlayer != player && count < 3) {
+                double playerDist = player.distanceTo(otherPlayer);
+                String playerName = otherPlayer.getName().getString();
+                
+                String pInfo = String.format("§f- %s §7(§a%.1fm§7)", playerName, playerDist);
+                drawContext.drawText(textRenderer, pInfo, x, offsetY, 0xFFFFFF, true);
+                
+                offsetY += 10;
+                count++;
+            }
+        }
+        
+        // Agar yaqinda o'yinchi bo'lmasa
+        if (count == 0) {
+            drawContext.drawText(textRenderer, "§7Hech kim yo'q", x, offsetY, 0xFFFFFF, true);
+        }
+    }
+}
